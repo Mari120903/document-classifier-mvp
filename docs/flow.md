@@ -49,4 +49,21 @@ Possible issues:
 - Flags are set according to defined rules.
 
 Possible issues:
-- Ambiguou
+- Ambiguous content
+- Low confidence classification
+
+---
+
+## 5. Completion
+
+- Status is set to PROCESSED.
+- Classification result and flags are stored.
+- Document is available for review or further actions.
+
+---
+
+## 6. Failure Handling
+
+- If a critical error occurs at any step:
+  - Status is set to FAILED.
+  - Error information is stored for debugging.
