@@ -36,3 +36,16 @@ Requires Go (tested with go1.25.x).
 
 ```bash
 go test ./...
+
+## Machine Learning (Naive Bayes)
+
+This repo includes an ML-based text classifier (Multinomial Naive Bayes).
+It can be trained with labeled examples and produces:
+- predicted document type
+- confidence score
+- review flags
+
+Run demo:
+
+```bash
+go run ./cmd/demo
