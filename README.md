@@ -29,3 +29,10 @@ and classifies its type.
 3. Text is extracted from the document
 4. The document is classified
 5. Status, type, and flags are stored
+
+## Run tests
+
+Requires Go (tested with go1.25.x).
+
+```bash
+go test ./...
