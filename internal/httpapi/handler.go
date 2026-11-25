@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 
@@ -38,13 +39,18 @@ type handler struct {
 
 // NewHandler creates the HTTP API handler for a trained Naive Bayes model.
 func NewHandler(model *document.NaiveBayes) http.Handler {
+	return NewHandlerWithLogger(model, slog.Default())
+}
+
+// NewHandlerWithLogger creates the HTTP API handler with a configurable request logger.
+func NewHandlerWithLogger(model *document.NaiveBayes, logger *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 	h := &handler{model: model}
 
 	mux.HandleFunc("GET /healthz", h.health)
 	mux.HandleFunc("POST /v1/classify", h.classify)
 
-	return mux
+	return LoggingMiddleware(logger)(mux)
 }
 
 func (h *handler) health(w http.ResponseWriter, _ *http.Request) {
