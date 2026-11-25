@@ -188,7 +188,7 @@ func (nb *NaiveBayes) PredictWithFlags(text string) (DocType, float64, Flags) {
 	if score < 0.65 {
 		flags.NeedsReview = true
 	}
-	if len([]rune(trimmed)) < 80 {
+	if hasTruncationMarker(trimmed) {
 		flags.Incomplete = true
 		flags.NeedsReview = true
 	}
