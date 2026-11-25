@@ -39,6 +39,21 @@ func ReadJSONL(reader io.Reader) ([]Record, error) {
 			return nil, fmt.Errorf("line %d: invalid JSON: %w", line, err)
 		}
 
+		if err := decoder.Decode(&struct{}{}); err != io.EOF {
+			if err == nil {
+				return nil, fmt.Errorf(
+					"line %d: unexpected additional JSON value",
+					line,
+				)
+			}
+
+			return nil, fmt.Errorf(
+				"line %d: invalid trailing content: %w",
+				line,
+				err,
+			)
+		}
+
 		if err := validateRecord(record); err != nil {
 			return nil, fmt.Errorf("line %d: %w", line, err)
 		}

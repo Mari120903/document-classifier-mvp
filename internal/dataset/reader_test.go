@@ -74,6 +74,14 @@ func TestReadJSONLRejectsInvalidRecords(t *testing.T) {
 			input: `{"id":"doc001","family":"shared","label":"FINANCIAL","difficulty":"easy","text":"Factura"}
 {"id":"doc002","family":"shared","label":"LEGAL","difficulty":"medium","text":"Contrato"}`,
 		},
+		{
+			name:  "trailing garbage",
+			input: `{"id":"doc001","family":"invoice","label":"FINANCIAL","difficulty":"easy","text":"Factura"} basura`,
+		},
+		{
+			name:  "additional JSON object",
+			input: `{"id":"doc001","family":"invoice","label":"FINANCIAL","difficulty":"easy","text":"Factura"} {"id":"doc002","family":"receipt","label":"FINANCIAL","difficulty":"easy","text":"Recibo"}`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -105,6 +113,20 @@ func TestReadJSONLAllowsBlankLines(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("expected blank lines to be ignored, got %v", err)
+	}
+
+	if len(records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(records))
+	}
+}
+
+func TestReadJSONLAllowsTrailingWhitespace(t *testing.T) {
+	input := `{"id":"doc001","family":"invoice","label":"FINANCIAL","difficulty":"easy","text":"Factura"}   `
+
+	records, err := ReadJSONL(strings.NewReader(input))
+
+	if err != nil {
+		t.Fatalf("expected trailing whitespace to be accepted, got %v", err)
 	}
 
 	if len(records) != 1 {
