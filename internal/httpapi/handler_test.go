@@ -80,6 +80,8 @@ func TestClassifyEndpointRejectsInvalidRequests(t *testing.T) {
 		{name: "unknown field", contentType: "application/json", body: `{"text":"hola","extra":true}`, wantStatus: http.StatusBadRequest},
 		{name: "multiple JSON values", contentType: "application/json", body: `{"text":"hola"} {"text":"otro"}`, wantStatus: http.StatusBadRequest},
 		{name: "non object", contentType: "application/json", body: `[]`, wantStatus: http.StatusBadRequest},
+		{name: "missing text field", contentType: "application/json", body: `{}`, wantStatus: http.StatusBadRequest},
+		{name: "null text field", contentType: "application/json", body: `{"text":null}`, wantStatus: http.StatusBadRequest},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -91,6 +93,25 @@ func TestClassifyEndpointRejectsInvalidRequests(t *testing.T) {
 				t.Fatalf("status = %d, want %d; body = %s", recorder.Code, test.wantStatus, recorder.Body.String())
 			}
 		})
+	}
+}
+
+func TestClassifyEndpointAcceptsEmptyTextForReview(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/classify", strings.NewReader(`{"text":""}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	testHandler(t).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body = %s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+	var response classifyResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if !response.Flags.Unreadable || !response.Flags.NeedsReview {
+		t.Fatalf("flags = %+v, want unreadable and needs_review", response.Flags)
 	}
 }
 
