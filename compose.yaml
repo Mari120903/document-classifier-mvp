@@ -1,0 +1,18 @@
+services:
+  api:
+    image: document-classifier-mvp:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: document-classifier-api
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      HTTP_ADDR: ":8080"
+      DATASET_PATH: "/data/documents.jsonl"
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
