@@ -128,6 +128,33 @@ func TestPredictWithFlagsOnEmptyText(t *testing.T) {
 	}
 }
 
+func TestPredictWithFlagsShortCompleteTextIsNotIncomplete(t *testing.T) {
+	nb := newTestClassifier(1.0)
+	if err := nb.Train(validExamples()); err != nil {
+		t.Fatalf("Train() error = %v", err)
+	}
+
+	_, _, flags := nb.PredictWithFlags("Factura total $100")
+	if flags.Incomplete {
+		t.Fatal("short text without a truncation marker must not be marked incomplete")
+	}
+}
+
+func TestPredictWithFlagsExplicitTruncationMarker(t *testing.T) {
+	nb := newTestClassifier(1.0)
+	if err := nb.Train(validExamples()); err != nil {
+		t.Fatalf("Train() error = %v", err)
+	}
+
+	_, _, flags := nb.PredictWithFlags("Factura total $100 [truncado]")
+	if !flags.Incomplete {
+		t.Fatal("expected Incomplete=true when an explicit truncation marker is present")
+	}
+	if !flags.NeedsReview {
+		t.Fatal("expected NeedsReview=true when incomplete")
+	}
+}
+
 func totalDocuments(nb *NaiveBayes) int {
 	total := 0
 	for _, count := range nb.docCounts {
