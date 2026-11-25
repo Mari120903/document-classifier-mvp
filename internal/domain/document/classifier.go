@@ -15,8 +15,8 @@ func ClassifyText(text string) (DocType, float64, Flags) {
 		return DocTypeUnknown, 0.0, flags
 	}
 
-	// INCOMPLETE (very small heuristic)
-	if len([]rune(t)) < 80 {
+	// INCOMPLETE is set only when the input explicitly signals truncation.
+	if hasTruncationMarker(t) {
 		flags.Incomplete = true
 		flags.NeedsReview = true
 	}
@@ -71,6 +71,25 @@ func ClassifyText(text string) (DocType, float64, Flags) {
 	}
 
 	return docType, conf, flags
+}
+
+// hasTruncationMarker deliberately uses explicit markers only. Text length alone
+// cannot establish whether a document is complete or truncated.
+func hasTruncationMarker(text string) bool {
+	lower := strings.ToLower(text)
+	markers := []string{
+		"[truncated]",
+		"[truncado]",
+		"(truncated)",
+		"(truncado)",
+		"document truncated",
+		"documento truncado",
+		"text truncated",
+		"texto truncado",
+		"contenido truncado",
+		"contenido omitido",
+	}
+	return containsAny(lower, markers...)
 }
 
 func containsAny(s string, needles ...string) bool {
