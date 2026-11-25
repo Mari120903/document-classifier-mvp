@@ -7,7 +7,6 @@ import (
 	"io"
 	"mime"
 	"net/http"
-	"strings"
 
 	"github.com/Mari120903/document-classifier-mvp/internal/domain/document"
 )
@@ -19,10 +18,10 @@ type classifyRequest struct {
 }
 
 type classifyResponse struct {
-	Label  document.DocType        `json:"label"`
-	Score  float64                 `json:"score"`
-	Scores map[document.DocType]float64 `json:"scores"`
-	Flags  document.Flags          `json:"flags"`
+	Label  document.DocType                   `json:"label"`
+	Score  float64                            `json:"score"`
+	Scores map[document.DocType]float64       `json:"scores"`
+	Flags  document.Flags                     `json:"flags"`
 }
 
 type errorResponse struct {
@@ -53,6 +52,11 @@ func (h *handler) health(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (h *handler) classify(w http.ResponseWriter, r *http.Request) {
+	if h.model == nil {
+		writeError(w, http.StatusServiceUnavailable, "classifier is not initialized")
+		return
+	}
+
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" {
 		writeError(w, http.StatusUnsupportedMediaType, "Content-Type must be application/json")
@@ -119,5 +123,3 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 		return
 	}
 }
-
-var _ = strings.TrimSpace
