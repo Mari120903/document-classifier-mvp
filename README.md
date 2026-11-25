@@ -8,7 +8,7 @@ A small Go project that classifies text extracted from documents using a Multino
 - Tokenization with basic lowercasing, punctuation removal, and stop-word filtering.
 - Laplace/additive smoothing controlled by `alpha`.
 - Prediction with a normalized model score.
-- Basic review flags for empty and short text.
+- Review flags for empty input, explicit truncation markers, suspicious patterns, and low model scores.
 - Unit tests for classification, invalid training data, and model state integrity.
 
 ## Document types
@@ -57,11 +57,19 @@ if err != nil {
 
 `Train` validates the entire batch before modifying the model. It returns an error for an empty batch, an unconfigured or unknown label, text with no usable tokens, or an invalid smoothing parameter.
 
+## Review flags
+
+- `Unreadable`: the input is empty or contains only whitespace.
+- `Incomplete`: the input contains an explicit truncation marker, such as `[truncated]`, `[truncado]`, or `documento truncado`.
+- `Suspicious`: the rule-based scanner finds one of its configured suspicious patterns.
+- `NeedsReview`: at least one review condition is met, including low model score.
+
+Text length alone does not establish document completeness. This MVP does not yet infer truncation from document structure, page metadata, or extraction diagnostics. Absence of an explicit marker does not guarantee that a document is complete.
+
 ## Important limitations
 
 - The included demo uses a tiny illustrative dataset. It is not evidence of generalization.
 - The returned score is normalized across the model's class scores; it is **not a calibrated probability**.
-- The `INCOMPLETE` flag currently uses a simple character-length threshold. It does not verify document completeness.
 - The current classifier works on text already provided to it. PDF/image ingestion, asynchronous processing, persistence, and production deployment are outside this MVP's implemented scope.
 
 ## Next engineering steps
