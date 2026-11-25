@@ -162,3 +162,29 @@ func totalDocuments(nb *NaiveBayes) int {
 	}
 	return total
 }
+
+func TestTokenizePreservesSpanishAccents(t *testing.T) {
+	input := "Cláusula obligación jurisdicción gráfico medición"
+
+	tokens := tokenize(input)
+
+	expected := []string{
+		"cláusula",
+		"obligación",
+		"jurisdicción",
+		"gráfico",
+		"medición",
+	}
+
+	if len(tokens) != len(expected) {
+		t.Fatalf("expected %d tokens, got %d: %v",
+			len(expected), len(tokens), tokens)
+	}
+
+	for i, token := range expected {
+		if tokens[i] != token {
+			t.Errorf("expected token %q at position %d, got %q",
+				token, i, tokens[i])
+		}
+	}
+}

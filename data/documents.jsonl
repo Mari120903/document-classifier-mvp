@@ -1,0 +1,20 @@
+{"id":"doc001","family":"invoice_services","label":"FINANCIAL","difficulty":"easy","text":"Factura A por servicios de consultoría. Importe neto: $120000. IVA: $25200. Total: $145200. Vencimiento: 30/11/2026."}
+{"id":"doc002","family":"payment_receipt","label":"FINANCIAL","difficulty":"easy","text":"Recibo de pago número 00451. Se acredita la suma de $85000 correspondiente al servicio mensual de mantenimiento."}
+{"id":"doc003","family":"bank_statement","label":"FINANCIAL","difficulty":"medium","text":"Detalle de operación bancaria: débito de $45000, comisión de mantenimiento $2500 y saldo disponible $183000."}
+{"id":"doc004","family":"service_quote","label":"FINANCIAL","difficulty":"medium","text":"Presupuesto por reparación de instalaciones. Mano de obra: 75000. Materiales: 43000. Total presupuestado: 118000."}
+{"id":"doc005","family":"payment_record","label":"FINANCIAL","difficulty":"hard","text":"Se registra un pago parcial de 35.000 y queda pendiente el saldo correspondiente al período anterior."}
+{"id":"doc006","family":"rental_contract","label":"LEGAL","difficulty":"easy","text":"Contrato de locación. Las partes acuerdan un plazo de duración de veinticuatro meses y establecen las obligaciones del locador y del locatario."}
+{"id":"doc007","family":"jurisdiction_clause","label":"LEGAL","difficulty":"easy","text":"Cláusula tercera: ambas partes reconocen la jurisdicción de los tribunales ordinarios competentes."}
+{"id":"doc008","family":"service_agreement","label":"LEGAL","difficulty":"medium","text":"Acuerdo de prestación de servicios. El proveedor deberá cumplir las condiciones pactadas y responder por los incumplimientos."}
+{"id":"doc009","family":"legal_authorization","label":"LEGAL","difficulty":"medium","text":"Autorización formal para actuar en representación de otra persona ante organismos administrativos."}
+{"id":"doc010","family":"general_legal_instrument","label":"LEGAL","difficulty":"hard","text":"Las partes dejan constancia de su conformidad y aceptan las condiciones establecidas en el presente instrumento."}
+{"id":"doc011","family":"architectural_plan","label":"GRAPHICAL","difficulty":"easy","text":"Plano arquitectónico de una vivienda con distribución de ambientes, cotas, medidas y escala 1:100."}
+{"id":"doc012","family":"flowchart","label":"GRAPHICAL","difficulty":"easy","text":"Diagrama de flujo que representa las etapas de entrada, procesamiento, validación y salida de datos."}
+{"id":"doc013","family":"bar_chart","label":"GRAPHICAL","difficulty":"medium","text":"Gráfico de barras comparativo de ventas mensuales. Enero: 120 unidades. Febrero: 145 unidades. Marzo: 98 unidades."}
+{"id":"doc014","family":"electrical_schematic","label":"GRAPHICAL","difficulty":"medium","text":"Esquema de conexiones eléctricas con símbolos, referencias y distribución de componentes."}
+{"id":"doc015","family":"system_diagram","label":"GRAPHICAL","difficulty":"hard","text":"Representación visual de tres módulos conectados mediante líneas y flechas. Se indican relaciones y dimensiones."}
+{"id":"doc016","family":"informal_message","label":"TEXTUAL","difficulty":"easy","text":"Hola, te escribo para confirmar que recibí tu mensaje y que asistiré a la reunión del próximo jueves."}
+{"id":"doc017","family":"business_email","label":"TEXTUAL","difficulty":"easy","text":"Estimado equipo: adjunto las observaciones realizadas durante la revisión del documento. Quedo atento a sus comentarios."}
+{"id":"doc018","family":"rescheduling_notice","label":"TEXTUAL","difficulty":"medium","text":"Les informo que la actividad prevista para mañana fue reprogramada. La nueva fecha será comunicada durante la semana."}
+{"id":"doc019","family":"formal_request","label":"TEXTUAL","difficulty":"medium","text":"Por medio de la presente solicito que se revise la información enviada anteriormente y se confirme su recepción."}
+{"id":"doc020","family":"meeting_followup","label":"TEXTUAL","difficulty":"hard","text":"Quería dejar constancia de lo conversado ayer. En principio estamos de acuerdo, aunque falta confirmar algunos detalles."}
