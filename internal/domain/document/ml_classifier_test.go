@@ -155,6 +155,102 @@ func TestPredictWithFlagsExplicitTruncationMarker(t *testing.T) {
 	}
 }
 
+func TestPredictScoresAreNormalizedAndConsistentWithPredict(t *testing.T) {
+	nb := newTestClassifier(1.0)
+	if err := nb.Train(validExamples()); err != nil {
+		t.Fatalf("Train() error = %v", err)
+	}
+
+	text := "Factura total a pagar vencimiento"
+	scores := nb.PredictScores(text)
+
+	if len(scores) != len(nb.labels) {
+		t.Fatalf("expected scores for %d configured labels, got %d", len(nb.labels), len(scores))
+	}
+
+	sum := 0.0
+	bestLabel := DocTypeUnknown
+	bestScore := 0.0
+	for _, label := range nb.labels {
+		score, ok := scores[label]
+		if !ok {
+			t.Errorf("missing score for configured label %s", label)
+			continue
+		}
+		if math.IsNaN(score) || math.IsInf(score, 0) || score < 0 || score > 1 {
+			t.Errorf("score for %s is outside [0, 1]: %v", label, score)
+		}
+		sum += score
+		if score > bestScore {
+			bestScore = score
+			bestLabel = label
+		}
+	}
+
+	if math.Abs(sum-1.0) > 1e-12 {
+		t.Fatalf("expected scores to sum to 1, got %.16f", sum)
+	}
+	if bestLabel != DocTypeFinancial {
+		t.Fatalf("expected FINANCIAL to have the highest score, got %s", bestLabel)
+	}
+
+	predictedLabel, predictedScore := nb.Predict(text)
+	if predictedLabel != bestLabel {
+		t.Fatalf("Predict() label = %s, highest-scoring label = %s", predictedLabel, bestLabel)
+	}
+	if math.Abs(predictedScore-bestScore) > 1e-12 {
+		t.Fatalf("Predict() score = %.16f, highest score = %.16f", predictedScore, bestScore)
+	}
+}
+
+func TestPredictScoresBeforeTrainingReturnsZeroForConfiguredLabels(t *testing.T) {
+	nb := newTestClassifier(1.0)
+	scores := nb.PredictScores("Factura total a pagar")
+
+	if len(scores) != len(nb.labels) {
+		t.Fatalf("expected %d configured labels, got %d scores", len(nb.labels), len(scores))
+	}
+	for _, label := range nb.labels {
+		if score, ok := scores[label]; !ok || score != 0 {
+			t.Errorf("expected score 0 for %s before training, got %v (present: %t)", label, score, ok)
+		}
+	}
+}
+
+func TestPredictScoresLeavesUntrainedLabelsAtZero(t *testing.T) {
+	nb := newTestClassifier(1.0)
+	if err := nb.Train(validExamples()[:1]); err != nil {
+		t.Fatalf("Train() error = %v", err)
+	}
+
+	scores := nb.PredictScores("Factura total a pagar")
+	if scores[DocTypeFinancial] != 1 {
+		t.Fatalf("expected trained FINANCIAL label to score 1, got %v", scores[DocTypeFinancial])
+	}
+	for _, label := range []DocType{DocTypeLegal, DocTypeTextual} {
+		if scores[label] != 0 {
+			t.Errorf("expected untrained label %s to score 0, got %v", label, scores[label])
+		}
+	}
+}
+
+func TestPredictScoresWithUnusableTextReturnsZeroScores(t *testing.T) {
+	nb := newTestClassifier(1.0)
+	if err := nb.Train(validExamples()); err != nil {
+		t.Fatalf("Train() error = %v", err)
+	}
+
+	scores := nb.PredictScores("de la y o")
+	if len(scores) != len(nb.labels) {
+		t.Fatalf("expected %d configured labels, got %d scores", len(nb.labels), len(scores))
+	}
+	for _, label := range nb.labels {
+		if scores[label] != 0 {
+			t.Errorf("expected score 0 for unusable input and label %s, got %v", label, scores[label])
+		}
+	}
+}
+
 func totalDocuments(nb *NaiveBayes) int {
 	total := 0
 	for _, count := range nb.docCounts {
