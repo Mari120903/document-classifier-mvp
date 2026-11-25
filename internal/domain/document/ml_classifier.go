@@ -126,28 +126,55 @@ func (nb *NaiveBayes) Train(examples []Example) error {
 // Predict returns the most likely label and its normalized model score.
 // The score is not a calibrated probability.
 func (nb *NaiveBayes) Predict(text string) (DocType, float64) {
-	if nb == nil || len(nb.labels) == 0 || len(nb.vocab) == 0 ||
+	scores := nb.PredictScores(text)
+
+	bestLabel := DocTypeUnknown
+	bestScore := 0.0
+
+	for _, label := range nb.labels {
+		if scores[label] > bestScore {
+			bestScore = scores[label]
+			bestLabel = label
+		}
+	}
+
+	return bestLabel, bestScore
+}
+
+// PredictScores returns the normalized score for each configured label.
+// Scores are not calibrated probabilities.
+func (nb *NaiveBayes) PredictScores(text string) map[DocType]float64 {
+	scores := make(map[DocType]float64)
+
+	if nb == nil {
+		return scores
+	}
+
+	for _, label := range nb.labels {
+		scores[label] = 0.0
+	}
+
+	if len(nb.labels) == 0 || len(nb.vocab) == 0 ||
 		math.IsNaN(nb.alpha) || math.IsInf(nb.alpha, 0) || nb.alpha <= 0 {
-		return DocTypeUnknown, 0.0
+		return scores
 	}
 
 	tokens := tokenize(text)
 	if len(tokens) == 0 {
-		return DocTypeUnknown, 0.0
+		return scores
 	}
 
 	totalDocs := 0
 	for _, label := range nb.labels {
 		totalDocs += nb.docCounts[label]
 	}
+
 	if totalDocs == 0 {
-		return DocTypeUnknown, 0.0
+		return scores
 	}
 
 	vocabSize := float64(len(nb.vocab))
-	logScores := map[DocType]float64{}
-	bestLabel := DocTypeUnknown
-	bestScore := math.Inf(-1)
+	logScores := make(map[DocType]float64)
 
 	for _, label := range nb.labels {
 		if nb.docCounts[label] == 0 {
@@ -165,13 +192,37 @@ func (nb *NaiveBayes) Predict(text string) (DocType, float64) {
 		}
 
 		logScores[label] = score
-		if score > bestScore {
-			bestScore = score
-			bestLabel = label
+	}
+
+	maxScore := math.Inf(-1)
+	for _, score := range logScores {
+		if score > maxScore {
+			maxScore = score
 		}
 	}
 
-	return bestLabel, softmax(bestLabel, logScores)
+	if math.IsInf(maxScore, -1) {
+		return scores
+	}
+
+	sum := 0.0
+	for _, score := range logScores {
+		if !math.IsInf(score, -1) {
+			sum += math.Exp(score - maxScore)
+		}
+	}
+
+	if sum == 0 {
+		return scores
+	}
+
+	for label, score := range logScores {
+		if !math.IsInf(score, -1) {
+			scores[label] = math.Exp(score-maxScore) / sum
+		}
+	}
+
+	return scores
 }
 
 func (nb *NaiveBayes) PredictWithFlags(text string) (DocType, float64, Flags) {
