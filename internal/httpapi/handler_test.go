@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -112,6 +114,37 @@ func TestClassifyEndpointAcceptsEmptyTextForReview(t *testing.T) {
 	}
 	if !response.Flags.Unreadable || !response.Flags.NeedsReview {
 		t.Fatalf("flags = %+v, want unreadable and needs_review", response.Flags)
+	}
+}
+
+
+func TestLoggingMiddlewareRecordsMetadataWithoutRequestBody(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
+	handler := LoggingMiddleware(logger)(testHandler(t))
+
+	const sensitiveText = "private-document-content"
+	request := httptest.NewRequest(http.MethodPost, "/v1/classify",
+		strings.NewReader(`{"text":"`+sensitiveText+`"}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if requestID := recorder.Header().Get("X-Request-ID"); requestID == "" {
+		t.Fatal("X-Request-ID header is missing")
+	}
+	logOutput := logs.String()
+	for _, field := range []string{"\"method\":\"POST\"", "\"path\":\"/v1/classify\"", "\"status\":200", "\"duration_ms\"", "\"response_bytes\""} {
+		if !strings.Contains(logOutput, field) {
+			t.Errorf("log output does not contain %s: %s", field, logOutput)
+		}
+	}
+	if strings.Contains(logOutput, sensitiveText) {
+		t.Fatal("log output contains request document text")
 	}
 }
 
