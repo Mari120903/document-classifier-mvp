@@ -14,14 +14,14 @@ import (
 const maxRequestBodyBytes = 1 << 20
 
 type classifyRequest struct {
-	Text string `json:"text"`
+	Text *string `json:"text"`
 }
 
 type classifyResponse struct {
-	Label  document.DocType                   `json:"label"`
-	Score  float64                            `json:"score"`
-	Scores map[document.DocType]float64       `json:"scores"`
-	Flags  document.Flags                     `json:"flags"`
+	Label  document.DocType             `json:"label"`
+	Score  float64                      `json:"score"`
+	Scores map[document.DocType]float64 `json:"scores"`
+	Flags  document.Flags               `json:"flags"`
 }
 
 type errorResponse struct {
@@ -95,9 +95,14 @@ func (h *handler) classify(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "request body must contain exactly one JSON object")
 		return
 	}
+	if request.Text == nil {
+		writeError(w, http.StatusBadRequest, "field text is required and must be a string")
+		return
+	}
 
-	label, score, flags := h.model.PredictWithFlags(request.Text)
-	_, _, heuristicFlags := document.ClassifyText(request.Text)
+	text := *request.Text
+	label, score, flags := h.model.PredictWithFlags(text)
+	_, _, heuristicFlags := document.ClassifyText(text)
 	flags.Suspicious = heuristicFlags.Suspicious
 	if flags.Suspicious {
 		flags.NeedsReview = true
@@ -106,7 +111,7 @@ func (h *handler) classify(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, classifyResponse{
 		Label:  label,
 		Score:  score,
-		Scores: h.model.PredictScores(request.Text),
+		Scores: h.model.PredictScores(text),
 		Flags:  flags,
 	})
 }
