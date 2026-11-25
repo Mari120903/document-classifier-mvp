@@ -1,51 +1,73 @@
 # Document Classifier MVP
 
-## Goal
-A system that receives a document, processes it asynchronously,
-and classifies its type.
+A small Go project that classifies text extracted from documents using a Multinomial Naive Bayes model.
 
-## Document States
-- UPLOADED
-- PROCESSING
-- PROCESSED
-- FAILED
+## Current scope
 
-## Document Flags
-- UNREADABLE
-- INCOMPLETE
-- SUSPICIOUS
-- NEEDS_REVIEW
+- Multinomial Naive Bayes trained from labeled text examples.
+- Tokenization with basic lowercasing, punctuation removal, and stop-word filtering.
+- Laplace/additive smoothing controlled by `alpha`.
+- Prediction with a normalized model score.
+- Basic review flags for empty and short text.
+- Unit tests for classification, invalid training data, and model state integrity.
 
-## Document Types
-- TEXTUAL
-- LEGAL
-- FINANCIAL
-- GRAPHICAL
-- UNKNOWN
+## Document types
 
-## High-Level Flow
-1. A document is uploaded to the system
-2. The system processes the document asynchronously
-3. Text is extracted from the document
-4. The document is classified
-5. Status, type, and flags are stored
+- `TEXTUAL`
+- `LEGAL`
+- `FINANCIAL`
+- `GRAPHICAL`
+- `UNKNOWN` (fallback when the model cannot predict)
 
-## Run tests
+## Run
 
-Requires Go (tested with go1.25.x).
+Requires Go 1.25.6 or compatible.
 
 ```bash
 go test ./...
-
-## Machine Learning (Naive Bayes)
-
-This repo includes an ML-based text classifier (Multinomial Naive Bayes).
-It can be trained with labeled examples and produces:
-- predicted document type
-- confidence score
-- review flags
-
-Run demo:
-
-```bash
 go run ./cmd/demo
+```
+
+## Train the model
+
+Configure the labels, then pass labeled examples to `Train`:
+
+```go
+classifier := document.NewNaiveBayes(
+    1.0,
+    document.DocTypeFinancial,
+    document.DocTypeLegal,
+    document.DocTypeTextual,
+)
+
+err := classifier.Train([]document.Example{
+    {
+        Label: document.DocTypeFinancial,
+        Text:  "Factura total a pagar vencimiento IVA",
+    },
+    {
+        Label: document.DocTypeLegal,
+        Text:  "Contrato cláusula jurisdicción obligaciones",
+    },
+})
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+`Train` validates the entire batch before modifying the model. It returns an error for an empty batch, an unconfigured or unknown label, text with no usable tokens, or an invalid smoothing parameter.
+
+## Important limitations
+
+- The included demo uses a tiny illustrative dataset. It is not evidence of generalization.
+- The returned score is normalized across the model's class scores; it is **not a calibrated probability**.
+- The `INCOMPLETE` flag currently uses a simple character-length threshold. It does not verify document completeness.
+- The current classifier works on text already provided to it. PDF/image ingestion, asynchronous processing, persistence, and production deployment are outside this MVP's implemented scope.
+
+## Next engineering steps
+
+1. Build a larger, representative, labeled dataset.
+2. Evaluate on held-out data using precision, recall, F1-score, and a confusion matrix.
+3. Compare against a majority-class baseline.
+4. Improve tokenization and document-specific preprocessing.
+5. Calibrate prediction scores before treating them as probabilities.
