@@ -1,6 +1,7 @@
 package document
 
 import (
+	"fmt"
 	"math"
 	"testing"
 )
