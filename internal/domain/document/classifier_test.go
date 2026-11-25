@@ -15,14 +15,20 @@ func TestClassifyText_Unreadable(t *testing.T) {
 	}
 }
 
-func TestClassifyText_Incomplete(t *testing.T) {
-	text := "Factura: Total $100"
-	_, _, flags := ClassifyText(text)
+func TestClassifyText_ShortCompleteTextIsNotIncomplete(t *testing.T) {
+	_, _, flags := ClassifyText("Factura: Total $100")
+	if flags.Incomplete {
+		t.Fatal("short text without a truncation marker must not be marked incomplete")
+	}
+}
+
+func TestClassifyText_ExplicitTruncationMarker(t *testing.T) {
+	_, _, flags := ClassifyText("Factura: Total $100 [TRUNCATED]")
 	if !flags.Incomplete {
-		t.Fatalf("expected Incomplete=true for short text")
+		t.Fatal("expected Incomplete=true when an explicit truncation marker is present")
 	}
 	if !flags.NeedsReview {
-		t.Fatalf("expected NeedsReview=true when incomplete")
+		t.Fatal("expected NeedsReview=true when incomplete")
 	}
 }
 

@@ -1,14 +1,16 @@
 package document
 
 import (
+	"errors"
 	"math"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
 // NaiveBayes is a Multinomial Naive Bayes classifier for text.
-// This is real machine learning: it learns from labeled examples.
+// It learns token frequencies from labeled examples.
 type NaiveBayes struct {
 	labels []DocType
 
@@ -20,15 +22,24 @@ type NaiveBayes struct {
 	alpha float64
 }
 
+type Example struct {
+	Label DocType
+	Text  string
+}
+
+// NewNaiveBayes creates a classifier. Configuration is validated by Train,
+// which returns an error if alpha or the label set is invalid.
 func NewNaiveBayes(alpha float64, labels ...DocType) *NaiveBayes {
-	unique := make([]DocType, 0)
+	unique := make([]DocType, 0, len(labels))
 	seen := map[DocType]bool{}
-	for _, l := range labels {
-		if !seen[l] {
-			seen[l] = true
-			unique = append(unique, l)
+
+	for _, label := range labels {
+		if !seen[label] {
+			seen[label] = true
+			unique = append(unique, label)
 		}
 	}
+
 	sort.Slice(unique, func(i, j int) bool { return unique[i] < unique[j] })
 
 	nb := &NaiveBayes{
@@ -40,151 +51,253 @@ func NewNaiveBayes(alpha float64, labels ...DocType) *NaiveBayes {
 		alpha:       alpha,
 	}
 
-	for _, l := range unique {
-		nb.tokenCounts[l] = map[string]int{}
-		nb.totalTokens[l] = 0
-		nb.docCounts[l] = 0
+	for _, label := range unique {
+		nb.tokenCounts[label] = map[string]int{}
+		nb.totalTokens[label] = 0
+		nb.docCounts[label] = 0
 	}
 
 	return nb
 }
 
-type Example struct {
-	Label DocType
-	Text  string
-}
-
-func (nb *NaiveBayes) Train(examples []Example) {
-	for _, ex := range examples {
-		tokens := tokenize(ex.Text)
-		nb.docCounts[ex.Label]++
-
-		for _, tok := range tokens {
-			nb.vocab[tok] = true
-			nb.tokenCounts[ex.Label][tok]++
-			nb.totalTokens[ex.Label]++
-		}
+// Train validates the complete batch before changing the model.
+// If validation fails, the model remains unchanged.
+func (nb *NaiveBayes) Train(examples []Example) error {
+	if nb == nil {
+		return errors.New("naive bayes classifier is nil")
 	}
-}
-
-func (nb *NaiveBayes) Predict(text string) (DocType, float64) {
-	tokens := tokenize(text)
-	if len(tokens) == 0 {
-		return DocTypeUnknown, 0.0
+	if math.IsNaN(nb.alpha) || math.IsInf(nb.alpha, 0) || nb.alpha <= 0 {
+		return errors.New("alpha must be a finite number greater than zero")
+	}
+	if len(nb.labels) == 0 {
+		return errors.New("at least one document label must be configured")
+	}
+	if len(examples) == 0 {
+		return errors.New("training examples cannot be empty")
 	}
 
-	totalDocs := 0
-	for _, l := range nb.labels {
-		totalDocs += nb.docCounts[l]
-	}
-	if totalDocs == 0 {
-		return DocTypeUnknown, 0.0
+	knownLabels := make(map[DocType]bool, len(nb.labels))
+	for _, label := range nb.labels {
+		knownLabels[label] = true
 	}
 
-	vocabSize := float64(len(nb.vocab))
-	alpha := nb.alpha
-
-	logScores := map[DocType]float64{}
-	bestLabel := DocTypeUnknown
-	bestScore := math.Inf(-1)
+	// Build the batch separately so invalid input cannot partially train the model.
+	batchTokenCounts := make(map[DocType]map[string]int, len(nb.labels))
+	batchTotalTokens := make(map[DocType]int, len(nb.labels))
+	batchDocCounts := make(map[DocType]int, len(nb.labels))
+	batchVocab := make(map[string]bool)
 
 	for _, label := range nb.labels {
-		prior := float64(nb.docCounts[label]) / float64(totalDocs)
-		if prior == 0 {
-			logScores[label] = math.Inf(-1)
-			continue
+		batchTokenCounts[label] = map[string]int{}
+	}
+
+	for i, example := range examples {
+		if !knownLabels[example.Label] {
+			return errors.New("training example contains an unknown label at index " + strconv.Itoa(i))
 		}
 
-		score := math.Log(prior)
-		denom := float64(nb.totalTokens[label]) + alpha*vocabSize
-
-		for _, tok := range tokens {
-			count := float64(nb.tokenCounts[label][tok])
-			score += math.Log((count + alpha) / denom)
+		tokens := tokenize(example.Text)
+		if len(tokens) == 0 {
+			return errors.New("training example has no usable tokens at index " + strconv.Itoa(i))
 		}
 
-		logScores[label] = score
-		if score > bestScore {
-			bestScore = score
+		batchDocCounts[example.Label]++
+		for _, token := range tokens {
+			batchVocab[token] = true
+			batchTokenCounts[example.Label][token]++
+			batchTotalTokens[example.Label]++
+		}
+	}
+
+	for _, label := range nb.labels {
+		nb.docCounts[label] += batchDocCounts[label]
+		nb.totalTokens[label] += batchTotalTokens[label]
+		for token, count := range batchTokenCounts[label] {
+			nb.tokenCounts[label][token] += count
+		}
+	}
+	for token := range batchVocab {
+		nb.vocab[token] = true
+	}
+
+	return nil
+}
+
+// Predict returns the most likely label and its normalized model score.
+// The score is not a calibrated probability.
+func (nb *NaiveBayes) Predict(text string) (DocType, float64) {
+	scores := nb.PredictScores(text)
+
+	bestLabel := DocTypeUnknown
+	bestScore := 0.0
+
+	for _, label := range nb.labels {
+		if scores[label] > bestScore {
+			bestScore = scores[label]
 			bestLabel = label
 		}
 	}
 
-	conf := softmax(bestLabel, logScores)
-	return bestLabel, conf
+	return bestLabel, bestScore
+}
+
+// PredictScores returns the normalized score for each configured label.
+// Scores are not calibrated probabilities.
+func (nb *NaiveBayes) PredictScores(text string) map[DocType]float64 {
+	scores := make(map[DocType]float64)
+
+	if nb == nil {
+		return scores
+	}
+
+	for _, label := range nb.labels {
+		scores[label] = 0.0
+	}
+
+	if len(nb.labels) == 0 || len(nb.vocab) == 0 ||
+		math.IsNaN(nb.alpha) || math.IsInf(nb.alpha, 0) || nb.alpha <= 0 {
+		return scores
+	}
+
+	tokens := tokenize(text)
+	if len(tokens) == 0 {
+		return scores
+	}
+
+	totalDocs := 0
+	for _, label := range nb.labels {
+		totalDocs += nb.docCounts[label]
+	}
+
+	if totalDocs == 0 {
+		return scores
+	}
+
+	vocabSize := float64(len(nb.vocab))
+	logScores := make(map[DocType]float64)
+
+	for _, label := range nb.labels {
+		if nb.docCounts[label] == 0 {
+			logScores[label] = math.Inf(-1)
+			continue
+		}
+
+		prior := float64(nb.docCounts[label]) / float64(totalDocs)
+		score := math.Log(prior)
+		denom := float64(nb.totalTokens[label]) + nb.alpha*vocabSize
+
+		for _, token := range tokens {
+			count := float64(nb.tokenCounts[label][token])
+			score += math.Log((count + nb.alpha) / denom)
+		}
+
+		logScores[label] = score
+	}
+
+	maxScore := math.Inf(-1)
+	for _, score := range logScores {
+		if score > maxScore {
+			maxScore = score
+		}
+	}
+
+	if math.IsInf(maxScore, -1) {
+		return scores
+	}
+
+	sum := 0.0
+	for _, score := range logScores {
+		if !math.IsInf(score, -1) {
+			sum += math.Exp(score - maxScore)
+		}
+	}
+
+	if sum == 0 {
+		return scores
+	}
+
+	for label, score := range logScores {
+		if !math.IsInf(score, -1) {
+			scores[label] = math.Exp(score-maxScore) / sum
+		}
+	}
+
+	return scores
 }
 
 func (nb *NaiveBayes) PredictWithFlags(text string) (DocType, float64, Flags) {
-	t := strings.TrimSpace(text)
+	trimmed := strings.TrimSpace(text)
 	flags := Flags{}
 
-	if t == "" {
+	if trimmed == "" {
 		flags.Unreadable = true
 		flags.NeedsReview = true
 		return DocTypeUnknown, 0.0, flags
 	}
 
-	label, conf := nb.Predict(t)
-
-	if conf < 0.65 {
+	label, score := nb.Predict(trimmed)
+	if score < 0.65 {
 		flags.NeedsReview = true
 	}
-	if len([]rune(t)) < 80 {
+	if hasTruncationMarker(trimmed) {
 		flags.Incomplete = true
 		flags.NeedsReview = true
 	}
 
-	return label, conf, flags
+	return label, score, flags
 }
 
 func softmax(best DocType, logScores map[DocType]float64) float64 {
-	max := math.Inf(-1)
-	for _, v := range logScores {
-		if v > max {
-			max = v
+	maxScore := math.Inf(-1)
+	for _, score := range logScores {
+		if score > maxScore {
+			maxScore = score
 		}
 	}
-	sum := 0.0
-	bestVal := 0.0
+	if math.IsInf(maxScore, -1) {
+		return 0.0
+	}
 
-	for l, v := range logScores {
-		if math.IsInf(v, -1) {
+	sum := 0.0
+	bestValue := 0.0
+	for label, score := range logScores {
+		if math.IsInf(score, -1) {
 			continue
 		}
-		ev := math.Exp(v - max)
-		sum += ev
-		if l == best {
-			bestVal = ev
+		value := math.Exp(score - maxScore)
+		sum += value
+		if label == best {
+			bestValue = value
 		}
 	}
 	if sum == 0 {
 		return 0.0
 	}
-	return bestVal / sum
+	return bestValue / sum
 }
 
 var nonAlphaNum = regexp.MustCompile(`[^a-z0-9áéíóúñü%$]+`)
 
 func tokenize(text string) []string {
-	s := strings.ToLower(strings.TrimSpace(text))
-	if s == "" {
+	text = strings.ToLower(strings.TrimSpace(text))
+	if text == "" {
 		return nil
 	}
 
-	s = nonAlphaNum.ReplaceAllString(s, " ")
-	parts := strings.Fields(s)
+	text = nonAlphaNum.ReplaceAllString(text, " ")
+	parts := strings.Fields(text)
 
-	stop := map[string]bool{
+	stopWords := map[string]bool{
 		"de": true, "la": true, "el": true, "y": true, "o": true,
 		"the": true, "and": true, "of": true, "to": true,
 	}
 
 	var tokens []string
-	for _, p := range parts {
-		if len([]rune(p)) <= 1 || stop[p] {
+	for _, part := range parts {
+		if len([]rune(part)) <= 1 || stopWords[part] {
 			continue
 		}
-		tokens = append(tokens, p)
+		tokens = append(tokens, part)
 	}
 	return tokens
 }

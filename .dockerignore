@@ -1,0 +1,12 @@
+.git
+.github
+.vscode
+.idea
+*.exe
+*.test
+*.out
+.env
+.env.*
+data/*_batch.jsonl
+data/*_validation.jsonl
+data/full_validation.jsonl
